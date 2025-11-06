@@ -27,26 +27,29 @@ class PageController extends Controller
 
     public function store(Request $request)
     {
-        $request->validate([
+        $data = $request->validate([
             'title' => 'required|string|max:255',
-
-            'gjs_html' => 'required|string',
-            'gjs_css' => 'required|string',
-            'gjs_json' => 'required|string',
+            'gjs_html' => 'nullable|string',
+            'gjs_css' => 'nullable|string',
+            'gjs_json' => 'nullable|string',
         ]);
 
-        $slug = Str::slug($request->title);
+        $baseSlug = Str::slug($data['title'] ?? 'page');
+        $slug = $baseSlug;
+        $i = 1;
+        while (Page::where('slug', $slug)->exists()) {
+            $slug = $baseSlug.'-'.$i++;
+        }
 
         $page = Page::create([
-            'title' => $request->title,
+            'title' => $data['title'],
             'slug' => $slug,
-            'html' => $request->gjs_html,
-            'css' => $request->gjs_css,
-            'json' => $request->gjs_json,
+            'html' => $data['gjs_html'] ?? '',
+            'css' => $data['gjs_css'] ?? '',
+            'json' => $data['gjs_json'] ?? '',
         ]);
 
-        return redirect()->route('pages')
-            ->with('success', 'Page saved successfully!');
+        return redirect()->route('pages')->with('success', 'Page created.');
     }
 
     public function edit($id)
@@ -134,61 +137,88 @@ class PageController extends Controller
     //     ]);
     // }
 
-    public function show($slug)
+    private function buildHtml($components)
     {
-        $page = \App\Models\Page::where('slug', $slug)->firstOrFail();
-        dd([
-
-            'json' => $page->json,
-        ]);
-        $content = '';
-        $styles = '';
-
-        if (! empty($page->json)) {
-
-            $data = json_decode($page->json, true);
-
-            $mainComponent = $data['pages'][0]['frames'][0]['component'] ?? null;
-
-            if (isset($mainComponent['content']) && is_string($mainComponent['content'])) {
-                $content = $mainComponent['content'];
-            }
-
-            $styles = $data['styles'] ?? '';
-
-            if (empty($content) && $mainComponent) {
-
-                $content = '<h1>Page built from JSON structure, content may be missing.</h1>';
-            }
-
-        } else {
-
-            $content = '<h1>Error: No content or JSON data available for this page.</h1>';
+        if (! is_array($components)) {
+            return '';
         }
 
-        $globalDependencies = '';
+        $html = '';
+        foreach ($components as $comp) {
+            // Skip non-component items
+            if (! isset($comp['tagName']) && ! isset($comp['type'])) {
+                continue;
+            }
 
-        $fullHtml = '
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>'.htmlspecialchars($page->title).'</title>
-            
-            '.$globalDependencies.' 
-            
-            '.(! empty($styles) ? '<style>'.$styles.'</style>' : '').'
-            
-        </head>
-        <body>
-            '.$content.' 
-        </body>
-        </html>
-    ';
+            // Text node
+            if (($comp['type'] ?? '') === 'textnode') {
+                $html .= htmlspecialchars($comp['content'] ?? '');
 
-        return new Response($fullHtml, 200, [
-            'Content-Type' => 'text/html',
-        ]);
+                continue;
+            }
+
+            // Default to div
+            $tag = $comp['tagName'] ?? 'div';
+            $classes = isset($comp['classes']) ? implode(' ', $comp['classes']) : '';
+            $id = $comp['attributes']['id'] ?? '';
+
+            // Recursively build inner content
+            $inner = $this->buildHtml($comp['components'] ?? []);
+
+            $attrs = '';
+            if ($id) {
+                $attrs .= " id=\"$id\"";
+            }
+            if ($classes) {
+                $attrs .= " class=\"$classes\"";
+            }
+
+            $html .= "<$tag$attrs>$inner</$tag>";
+        }
+
+        return $html;
+    }
+
+    private function buildCss($styles)
+    {
+        $css = '';
+        foreach ($styles ?? [] as $style) {
+            $selectors = $style['selectors'] ?? [];
+            $props = $style['style'] ?? [];
+
+            $selector = '';
+            foreach ($selectors as $s) {
+                $name = $s['name'] ?? '';
+                $type = $s['type'] ?? 1;
+                $prefix = $type === 1 ? '.' : '#';
+                $selector .= $prefix.$name;
+            }
+
+            if (! $selector || empty($props)) {
+                continue;
+            }
+
+            $css .= "$selector {\n";
+            foreach ($props as $key => $val) {
+                $css .= "  $key: $val;\n";
+            }
+            $css .= "}\n";
+        }
+
+        return $css;
+    }
+
+    public function show($slug)
+    {
+        $page = Page::where('slug', $slug)->firstOrFail();
+        $data = json_decode($page->json, true);
+
+        $components = $data['pages'][0]['frames'][0]['component']['components'] ?? [];
+        $styles = $data['styles'] ?? [];
+
+        $finalHtml = $this->buildHtml($components);
+        $finalCss = $this->buildCss($styles);
+
+        return view('pages.render', compact('finalHtml', 'finalCss', 'page'));
     }
 }

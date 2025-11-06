@@ -1,16 +1,13 @@
-// Ensure you have all necessary imports
-import "./bootstrap";
-
 import grapesjs from "grapesjs";
 import "grapesjs/dist/css/grapes.min.css";
 import grapesjsPresetWebpage from "grapesjs-preset-webpage";
 import grapesjsBlocksBasic from "grapesjs-blocks-basic";
 
 document.addEventListener("DOMContentLoaded", () => {
-    // CRITICAL: Initialize GrapesJS and assign it to the window object
+    // Expose editor on window so blade scripts can read its data before form submit
     window.editor = grapesjs.init({
         container: "#gjs",
-        height: "100%", // Use 100% since we set 800px on the #gjs container
+        height: "100vh",
         width: "auto",
         fromElement: true,
         storageManager: false,
