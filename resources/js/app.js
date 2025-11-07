@@ -7,7 +7,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Expose editor on window so blade scripts can read its data before form submit
     window.editor = grapesjs.init({
         container: "#gjs",
-        height: "100vh",
+        height: "800px",
         width: "auto",
         fromElement: true,
         storageManager: false,

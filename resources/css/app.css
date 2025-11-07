@@ -9,3 +9,14 @@
     --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
         'Segoe UI Symbol', 'Noto Color Emoji';
 }
+html, body {
+    /* Set the root elements to 100% height */
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+/* If your content is wrapped in a main app div, it also needs 100% */
+#app {
+    height: 100%;
+}

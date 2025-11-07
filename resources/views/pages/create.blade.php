@@ -16,7 +16,7 @@
                oninput="document.getElementById('pageTitle').value = this.value || 'Untitled Page'">
     </div>
 
-    <div id="gjs" class="border-2 border-gray-300 rounded-lg overflow-hidden"></div>
+    <div id="gjs" class="border-2 w-auto border-gray-300 rounded-lg overflow-hidden"></div>
 
     <div class="p-6">
         <button type="submit" class="bg-green-600 hover:bg-green-700 text-white font-medium px-6 py-3 rounded-md">
@@ -35,23 +35,27 @@
 function setEditorFields() {
     const editor = window.editor;
     if (!editor) return false;
+    const projectData = editor.getProjectData();
+    const formattedData = {
+        "page_data": {
+        
+            "gjs-html": editor.getHtml() || '',
+            "gjs-css": editor.getCss() || '',  
+            "gjs-assets": JSON.stringify(projectData.assets || []),
+            "gjs-styles": JSON.stringify(projectData.styles || []),
+            "gjs-components": JSON.stringify(projectData.components || []),
+        }
+    };
+    document.getElementById("pageJson").value = JSON.stringify(formattedData);
 
-    const html = typeof editor.getHtml === 'function' ? editor.getHtml() : '';
-    const css = typeof editor.getCss === 'function' ? editor.getCss() : '';
-    const json = typeof editor.getProjectData === 'function' ? JSON.stringify(editor.getProjectData()) : '';
-
-    document.getElementById("pageHtml").value = html;
-    document.getElementById("pageCss").value  = css;
-    document.getElementById("pageJson").value = json;
+    document.getElementById("pageHtml").value = formattedData.page_data["gjs-html"];
+    document.getElementById("pageCss").value = formattedData.page_data["gjs-css"];
 
     return true;
 }
 
 document.getElementById("formBuilderForm").addEventListener('submit', function (e) {
-    // If editor ready, set fields and allow submission
     if (setEditorFields()) return;
-
-    // Otherwise, prevent submit, poll until editor is ready, then submit
     e.preventDefault();
     const form = this;
     const interval = setInterval(() => {
